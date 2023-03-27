@@ -22,6 +22,7 @@ use futures::StreamExt;
 use gateway_client::bandwidth::BandwidthController;
 use log::*;
 use nym_sphinx::addressing::clients::Recipient;
+use nym_sphinx::params::PacketSize;
 use nym_task::{TaskClient, TaskManager};
 use std::error::Error;
 use validator_client::nyxd::QueryNyxdClient;
@@ -129,6 +130,14 @@ impl NymClient {
             ..
         } = client_status;
 
+        // FIXME: use correct value from the config once https://github.com/nymtech/nym/pull/3217
+        // is merged
+        let packet_size = config
+            .get_base()
+            .get_use_extended_packet_size()
+            .map(Into::into)
+            .unwrap_or(PacketSize::RegularPacket);
+
         let authenticator = Authenticator::new(auth_methods, allowed_users);
         let mut sphinx_socks = SphinxSocksServer::new(
             config.get_listening_port(),
@@ -137,6 +146,7 @@ impl NymClient {
             self_address,
             shared_lane_queue_lengths,
             socks::client::Config::new(
+                packet_size,
                 config.get_provider_interface_version(),
                 config.get_socks5_protocol_version(),
                 config.get_send_anonymously(),

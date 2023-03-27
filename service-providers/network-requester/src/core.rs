@@ -26,6 +26,7 @@ use nym_socks5_requests::{
 };
 use nym_sphinx::addressing::clients::Recipient;
 use nym_sphinx::anonymous_replies::requests::AnonymousSenderTag;
+use nym_sphinx::params::PacketSize;
 use nym_statistics_common::collector::StatisticsSender;
 use nym_task::connections::LaneQueueLengths;
 use nym_task::{TaskClient, TaskManager};
@@ -53,6 +54,8 @@ pub struct NRServiceProviderBuilder {
 }
 
 struct NRServiceProvider {
+    config: Config,
+
     outbound_request_filter: OutboundRequestFilter,
     open_proxy: bool,
     mixnet_client: nym_sdk::mixnet::MixnetClient,
@@ -232,6 +235,7 @@ impl NRServiceProviderBuilder {
         });
 
         let service_provider = NRServiceProvider {
+            config: self.config,
             outbound_request_filter: self.outbound_request_filter,
             open_proxy: self.open_proxy,
             mixnet_client,
@@ -319,6 +323,7 @@ impl NRServiceProvider {
         connection_id: ConnectionId,
         remote_addr: String,
         return_address: reply::MixnetAddress,
+        biggest_packet_size: PacketSize,
         controller_sender: ControllerSender,
         mix_input_sender: MixProxySender<MixnetMessage>,
         lane_queue_lengths: LaneQueueLengths,
@@ -375,6 +380,7 @@ impl NRServiceProvider {
         // run the proxy on the connection
         conn.run_proxy(
             remote_version,
+            biggest_packet_size,
             mix_receiver,
             mix_input_sender,
             lane_queue_lengths,
@@ -427,6 +433,15 @@ impl NRServiceProvider {
             return;
         }
 
+        // FIXME: use correct value from the config once https://github.com/nymtech/nym/pull/3217
+        // is merged
+        let packet_size = self
+            .config
+            .get_base()
+            .get_use_extended_packet_size()
+            .map(Into::into)
+            .unwrap_or(PacketSize::RegularPacket);
+
         let controller_sender_clone = self.controller_sender.clone();
         let mix_input_sender_clone = self.mix_input_sender.clone();
         let lane_queue_lengths_clone = self.mixnet_client.shared_lane_queue_lengths();
@@ -439,6 +454,7 @@ impl NRServiceProvider {
                 conn_id,
                 remote_addr,
                 return_address,
+                packet_size,
                 controller_sender_clone,
                 mix_input_sender_clone,
                 lane_queue_lengths_clone,
