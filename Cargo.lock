@@ -3048,6 +3048,7 @@ dependencies = [
  "nym-mixnet-contract-common",
  "nym-multisig-contract-common",
  "nym-pemstore",
+ "nym-service-provider-directory-common",
  "nym-sphinx",
  "nym-task",
  "nym-topology",
